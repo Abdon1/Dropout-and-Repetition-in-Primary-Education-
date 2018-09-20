@@ -1,0 +1,187 @@
+---
+title: "Exploratory Analysis"
+author: "Abdullahi Adinoyi IBRAHIM \n Jean-Paul ISHIMWE "
+date: "19 September 2018"
+output:
+  word_document: default
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+# Exploratory Analysis
+
+## Loading the data
+```{r}
+data <- read.csv("C:\\Users\\abdon\\Documents\\R\\BRD projects guide\\internship\\Assignmet\\Copy of laterite_education_data.csv", sep = ",", header=TRUE )
+
+data$Column1 <- NULL 
+```
+
+## Question 1             
+Renaming the features
+```{r}
+colnames(data) <- c("province", "district", "urban_rural_class", "weight", "consumption",
+                    "sex", "Age", "father_alive", "mother_alive", "healthproblem_4weeks", 
+                    "gradeAttended_2012", "gradeAttended_2013", "prevSch_12months", 
+                    "problem_experienced", "total_Education_Expenses", "WhoPaidExpenses_prev_12months",
+                    "num_missedSch_7days", "Reason4notattend", "Reason4leaving", "Can_Read", "Can_write",
+                    "can_Perform_calculation", "work_on_household_farm" )
+```
+
+             
+## Question 2                   
+                     
+Creating the dummy variables
+
+```{r}
+primary_only <- data[data$gradeAttended_2012=="Primary 1" | data$gradeAttended_2012=="Primary 2" | data$gradeAttended_2012=="Primary 3" | data$gradeAttended_2012=="Primary 4" | data$gradeAttended_2012=="Primary 5" | data$gradeAttended_2012=="Primary 6", ]
+
+# repeated
+primary_only$repeated <- ifelse(primary_only$gradeAttended_2012 == "Primary 1" & primary_only$gradeAttended_2013=="Primary 1",                                  "repeated",
+                         ifelse(primary_only$gradeAttended_2012 == "Primary 2" & primary_only$gradeAttended_2013=="Primary 2",                                 "repeated",
+                         ifelse(primary_only$gradeAttended_2012 == "Primary 3" & primary_only$gradeAttended_2013=="Primary 3",                                "repeated",
+                         ifelse(primary_only$gradeAttended_2012 == "Primary 4" & primary_only$gradeAttended_2013=="Primary 4",                                "repeated",
+                         ifelse(primary_only$gradeAttended_2012 == "Primary 5" & primary_only$gradeAttended_2013=="Primary 5",                                "repeated",
+                         ifelse(primary_only$gradeAttended_2012 == "Primary 6" & primary_only$gradeAttended_2013=="Primary 6",                                "repeated", "Promoted" )))))) 
+
+
+
+# dropout
+primary_only$dropout <- ifelse(primary_only$gradeAttended_2012 =="Primary 1" & primary_only$gradeAttended_2013=="Not in class",                              "dropout",
+                      ifelse(primary_only$gradeAttended_2012 =="Primary 2" & primary_only$gradeAttended_2013=="Not in class",                                "dropout",
+                      ifelse(primary_only$gradeAttended_2012 =="Primary 3" & primary_only$gradeAttended_2013=="Not in class",                               "dropout",
+                      ifelse(primary_only$gradeAttended_2012 =="Primary 4" & primary_only$gradeAttended_2013=="Not in class",                               "dropout",
+                      ifelse(primary_only$gradeAttended_2012 =="Primary 5" & primary_only$gradeAttended_2013=="Not in class",                               "dropout",
+                       ifelse(primary_only$gradeAttended_2012 =="Primary 6" & primary_only$gradeAttended_2013=="Not in class",                              "dropout","In School"))))))
+
+# table for dropout
+library(gmodels)
+CrossTable(primary_only$dropout)
+
+# table for repeared
+CrossTable(primary_only$repeated)
+```
+                                 
+* the overall dropout rate for dropout is $5.2\%$ and grade repetition is $25.1\%$  
+                    
+                     
+##  Question 3
+```{r}
+library(gmodels)
+library(ggplot2)
+
+# table for repeated
+CrossTable(primary_only$gradeAttended_2012, primary_only$repeated,prop.r = TRUE, prop.c = FALSE, prop.t = FALSE, prop.chisq = TRUE)
+
+# Visaulization for population
+ggplot(primary_only) + 
+  geom_bar(aes(x=gradeAttended_2012),fill = 'gray') + 
+  coord_flip() +
+  theme(axis.text.y = element_text(size = rel(.8))) +ggtitle("Population of student")
+
+# Visaulization for repeated
+ggplot(primary_only) + 
+  geom_bar(aes(x=repeated),fill = 'gray') + 
+  coord_flip() +
+  theme(axis.text.y = element_text(size = rel(.8))) +ggtitle("Repeated and not repeated")
+```
+                         
+* From our analysis, the grade repetition in primary education is sumaarised as follow; In primary 1 $39.5\%$ repeated, $23.6\%$ repeated in Primary 2, $16.8\%$ repated in primary 3, $16.7\%$ in Primry 4, $22.3\%$ in Primary 5 and $6.8\%$ repeated in Primary 6. Overall number of students that repeated is 567 out of 2260 students for the year 2012.                           
+
+                   
+## Question 4
+```{r}
+attach(primary_only)
+
+# Visualization of dropout
+ggplot(primary_only) + 
+  geom_bar(aes(x=dropout,fill = sex)) + 
+  coord_flip() +
+  theme(axis.text.y = element_text(size = rel(.8))) +ggtitle("Repeated and not repeated")
+
+# Table
+CrossTable(primary_only$sex, primary_only$dropout,prop.r = TRUE, prop.c = FALSE, prop.t = FALSE, prop.chisq = FALSE)
+```
+                 
+* From analysis above, the dropout rate is $5\%$ for Female and $5.4\%$ for Male, the difference between these dropout rate is $0.4\%$ which is statistically insignificant, using the knowledge of confidence interval, the difference between the error rates is $0.4\%$ < $5% CI%.                     
+
+* This means that the dropout rate between male and female students is almost thesame since we can round down $5.4$ to $5$, hence we can say that the dropout rate between male and female is aprroximately the same rate.
+
+
+## Question 5
+```{r}
+repeated_students <- primary_only[primary_only$repeated == "repeated",]
+#summary(repeated_students)
+```
+
+# Another technique
+```{r}
+library(party)
+library(randomForest)
+library(caret)
+# randomforest
+primary_only$repeated <- as.factor(primary_only$repeated)
+primary_only$dropout <- as.factor(primary_only$dropout)
+
+rf <- cforest(repeated ~., data=primary_only, control=cforest_unbiased(mtry=2,ntree=50))
+rf1 <- randomForest(repeated ~., data = primary_only)
+```
+
+```{r}
+set.seed(1)
+options(scipen = 999)
+# Important features
+varimp(rf)
+#importance(rf)
+varImp(rf)
+```
+
+                   
+* The following are good predictors of repetition in primary Education.
+       * Can_read
+       * Can_write
+       * can_perform_calculation
+       * Number of school missed in last 7 days
+       *  healthproblem_4week
+       * Reason4notattend
+  
+* Out of `r nrow(repeated_students)`, $235$ students **can not read** and 128 students in the "Can_read" column is not classified, this means out of the unclassided students some will fall in the can not read class. Overall number of students that can not read is $ > 235$ students
+
+* Out of `r nrow(repeated_students)`, $220$ pupils **can not perform calculation** and $128$ pupils are not classified also, the overall number of students that can not perform calculation will be more than $220$ if the unclassified pupils are classified
+           
+* for "no_missedSch_7days" column, many students did not attend class in the last 7 days and also $336$ students are not classified. this feature is another major factor for repetition since not attending class is a sign of unseriousness in the student   
+                   
+* $16\%$ of students have health issues in the last 4 weeks
+
+
+
+
+
+## Question 6                
+```{r}
+dropout_students <- primary_only[primary_only$dropout == "dropout",]
+summary(dropout_students)
+```
+                  
+### Strengths              
+               
+* this dataset covers all the provinces in Rwanda.                              
+                                                                                                   
+* The data has broad scope, this is because the data is given according to the districts in Rwanda                 
+                           
+* The "gradeAttended_2012" feature is rich, allowing us to classify students that dropout of class according to their classes
+
+
+### Limitations                 
+               
+* The data is missing the total earnings of the sponsor of the student, we need this information to determine the cause of dropout. 
+       
+* In the "problem_expericed" feature, information to the kind of problem experienced by the student is not given, this would have assist to determine what kind of problem made students dropout of school
+            
+* "WhoPaidExpenses_12months" feature is also not given, this is important in other to determine why a student dropout, it could be due to incapacity of the sponsor that made the student dropout of school
+             
+* The "Total Education expenses" feature is missing lots of information, if the total expenditure of student are known, we could determine maybe its due to high expenses that made a student 
+
+
+
